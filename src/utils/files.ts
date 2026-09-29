@@ -19,12 +19,19 @@ function walk(dir: string): string[] {
   });
 }
 
+export type DatabaseType = "sqlite" | "postgres";
+
 /**
  * Copy every file from templates/ into the project.
  * - existing files are skipped unless `force` is set
  * - Next.js 16+ renamed `middleware.ts` to `proxy.ts`, so we adapt it
+ * - Adapts lib/auth.ts depending on the chosen database (sqlite vs postgres)
  */
-export function copyTemplates(project: ProjectInfo, force: boolean): CopyResult {
+export function copyTemplates(
+  project: ProjectInfo,
+  force: boolean,
+  database: DatabaseType = "sqlite",
+): CopyResult {
   const result: CopyResult = { created: [], skipped: [] };
 
   for (const file of walk(TEMPLATES_DIR)) {
@@ -34,6 +41,24 @@ export function copyTemplates(project: ProjectInfo, force: boolean): CopyResult 
     if (rel === "middleware.ts" && project.nextMajor !== null && project.nextMajor >= 16) {
       rel = "proxy.ts";
       content = content.replace("export function middleware", "export function proxy");
+    }
+
+    if (rel === path.join("lib", "auth.ts") && database === "postgres") {
+      content = `import { betterAuth } from "better-auth";
+import { nextCookies } from "better-auth/next-js";
+import { Pool } from "pg";
+
+export const auth = betterAuth({
+  database: new Pool({
+    connectionString: process.env.DATABASE_URL,
+  }),
+  emailAndPassword: {
+    enabled: true,
+  },
+  // keep nextCookies() last in the list
+  plugins: [nextCookies()],
+});
+`;
     }
 
     const dest = path.join(project.srcRoot, rel);
@@ -53,7 +78,7 @@ export function copyTemplates(project: ProjectInfo, force: boolean): CopyResult 
 }
 
 /** Add missing keys to `.env.local` without touching existing ones. */
-export function writeEnv(root: string): string[] {
+export function writeEnv(root: string, database: DatabaseType = "sqlite"): string[] {
   const envPath = path.join(root, ".env.local");
   const current = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
   const added: string[] = [];
@@ -68,6 +93,10 @@ export function writeEnv(root: string): string[] {
 
   ensure("BETTER_AUTH_SECRET", crypto.randomBytes(32).toString("base64url"));
   ensure("BETTER_AUTH_URL", "http://localhost:3000");
+
+  if (database === "postgres") {
+    ensure("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mydb");
+  }
 
   if (added.length > 0) fs.writeFileSync(envPath, next);
   return added;

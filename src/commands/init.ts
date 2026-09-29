@@ -2,13 +2,14 @@ import path from "node:path";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { detectProject, type ProjectInfo } from "../utils/detect";
-import { copyTemplates, ignoreDatabase, writeEnv } from "../utils/files";
+import { copyTemplates, ignoreDatabase, writeEnv, type DatabaseType } from "../utils/files";
 import { installDeps, migrateDatabase } from "../utils/install";
 
 interface InitOptions {
   yes: boolean;
   force: boolean;
   cwd: string;
+  db?: DatabaseType;
 }
 
 function fail(message: string): never {
@@ -33,49 +34,84 @@ export async function init(options: InitOptions) {
     `Next.js ${project.nextMajor ?? "?"} · ${project.packageManager} · ${project.hasSrcDir ? "src/ layout" : "root layout"}`,
   );
 
-  if (!options.yes) {
-    const ok = await p.confirm({
-      message: "Add email + password auth (Better Auth, SQLite) to this project?",
+  let database: DatabaseType = options.db ?? "sqlite";
+
+  if (!options.yes && !options.db) {
+    const selected = await p.select({
+      message: "Which database would you like to use?",
+      options: [
+        {
+          value: "sqlite",
+          label: "SQLite",
+          hint: "Zero-config local file (sqlite.db), perfect for dev",
+        },
+        {
+          value: "postgres",
+          label: "PostgreSQL",
+          hint: "Neon, Supabase, Vercel Postgres (production ready)",
+        },
+      ],
+      initialValue: "sqlite",
     });
-    if (p.isCancel(ok) || !ok) {
+
+    if (p.isCancel(selected)) {
       p.cancel("Nothing was changed.");
       process.exit(0);
     }
+    database = selected as DatabaseType;
   }
 
   // 1. Files
-  const { created, skipped } = copyTemplates(project, options.force);
+  const { created, skipped } = copyTemplates(project, options.force, database);
   created.forEach((file) => p.log.success(`created ${file}`));
   skipped.forEach((file) => p.log.warn(`skipped ${file} (already exists, use --force to overwrite)`));
 
   // 2. Environment
-  const envKeys = writeEnv(project.root);
+  const envKeys = writeEnv(project.root, database);
   if (envKeys.length > 0) p.log.success(`added ${envKeys.join(", ")} to .env.local`);
-  if (ignoreDatabase(project.root)) p.log.success("added sqlite.db to .gitignore");
+  if (database === "sqlite" && ignoreDatabase(project.root)) {
+    p.log.success("added sqlite.db to .gitignore");
+  }
 
   // 3. Dependencies
+  const prodDeps = database === "sqlite"
+    ? ["better-auth", "better-sqlite3"]
+    : ["better-auth", "pg"];
+  const devDeps = database === "sqlite"
+    ? ["@types/better-sqlite3"]
+    : ["@types/pg"];
+
   const spinner = p.spinner();
-  spinner.start("Installing better-auth and better-sqlite3");
+  spinner.start(`Installing ${prodDeps.join(" and ")}`);
   try {
-    await installDeps(project.packageManager, project.root, ["better-auth", "better-sqlite3"], [
-      "@types/better-sqlite3",
-    ]);
+    await installDeps(project.packageManager, project.root, prodDeps, devDeps);
     spinner.stop("Dependencies installed");
   } catch (error) {
     spinner.stop(pc.red("Dependency installation failed"));
     p.log.error(String((error as Error).message));
-    fail("Fix the error above, then run the install manually: better-auth better-sqlite3 @types/better-sqlite3");
+    fail(`Fix the error above, then run: ${project.packageManager} install ${prodDeps.join(" ")}`);
   }
 
-  // 4. Database
+  // 4. Database setup & migrations
   const authConfig = path.join(project.hasSrcDir ? "src" : ".", "lib", "auth.ts");
-  spinner.start("Creating database tables");
-  try {
-    await migrateDatabase(project.root, authConfig);
-    spinner.stop("Database ready (sqlite.db)");
-  } catch {
-    spinner.stop(pc.yellow("Could not create the tables automatically"));
-    p.log.warn(`Run this yourself: npx @better-auth/cli@latest migrate --config ${authConfig}`);
+
+  if (database === "sqlite") {
+    spinner.start("Creating database tables");
+    try {
+      await migrateDatabase(project.root, authConfig);
+      spinner.stop("Database ready (sqlite.db)");
+    } catch {
+      spinner.stop(pc.yellow("Could not create the tables automatically"));
+      p.log.warn(`Run this yourself: npx @better-auth/cli@latest migrate --config ${authConfig}`);
+    }
+  } else {
+    p.log.step("PostgreSQL configured (Neon / Supabase / Vercel)");
+    p.log.info(
+      `1. Make sure your ${pc.cyan("DATABASE_URL")} is set in ${pc.cyan(".env.local")}`,
+    );
+    p.log.info(
+      `2. Create your tables by running: ${pc.cyan(`npx @better-auth/cli@latest migrate --config ${authConfig}`)}`,
+    );
   }
 
   p.note(

@@ -1,0 +1,84 @@
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
+import type { ProjectInfo } from "./detect";
+
+/** Templates ship next to `dist/` in the published package. */
+export const TEMPLATES_DIR = fileURLToPath(new URL("../templates", import.meta.url));
+
+export interface CopyResult {
+  created: string[];
+  skipped: string[];
+}
+
+function walk(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    return entry.isDirectory() ? walk(full) : [full];
+  });
+}
+
+/**
+ * Copy every file from templates/ into the project.
+ * - existing files are skipped unless `force` is set
+ * - Next.js 16+ renamed `middleware.ts` to `proxy.ts`, so we adapt it
+ */
+export function copyTemplates(project: ProjectInfo, force: boolean): CopyResult {
+  const result: CopyResult = { created: [], skipped: [] };
+
+  for (const file of walk(TEMPLATES_DIR)) {
+    let rel = path.relative(TEMPLATES_DIR, file);
+    let content = fs.readFileSync(file, "utf8");
+
+    if (rel === "middleware.ts" && project.nextMajor !== null && project.nextMajor >= 16) {
+      rel = "proxy.ts";
+      content = content.replace("export function middleware", "export function proxy");
+    }
+
+    const dest = path.join(project.srcRoot, rel);
+    const shown = path.relative(project.root, dest);
+
+    if (fs.existsSync(dest) && !force) {
+      result.skipped.push(shown);
+      continue;
+    }
+
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, content);
+    result.created.push(shown);
+  }
+
+  return result;
+}
+
+/** Add missing keys to `.env.local` without touching existing ones. */
+export function writeEnv(root: string): string[] {
+  const envPath = path.join(root, ".env.local");
+  const current = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";
+  const added: string[] = [];
+  let next = current;
+
+  const ensure = (key: string, value: string) => {
+    if (new RegExp(`^${key}=`, "m").test(current)) return;
+    if (next.length > 0 && !next.endsWith("\n")) next += "\n";
+    next += `${key}=${value}\n`;
+    added.push(key);
+  };
+
+  ensure("BETTER_AUTH_SECRET", crypto.randomBytes(32).toString("base64url"));
+  ensure("BETTER_AUTH_URL", "http://localhost:3000");
+
+  if (added.length > 0) fs.writeFileSync(envPath, next);
+  return added;
+}
+
+/** Make sure the SQLite file never ends up in git. */
+export function ignoreDatabase(root: string): boolean {
+  const gitignore = path.join(root, ".gitignore");
+  const current = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, "utf8") : "";
+  if (/^sqlite\.db$/m.test(current)) return false;
+  const sep = current.length > 0 && !current.endsWith("\n") ? "\n" : "";
+  fs.writeFileSync(gitignore, `${current}${sep}\n# elypsis\nsqlite.db\n`);
+  return true;
+}

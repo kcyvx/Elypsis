@@ -75,8 +75,8 @@ export async function init(options: InitOptions) {
 
   // 3. Dependencies
   const prodDeps = database === "sqlite"
-    ? ["better-auth", "better-sqlite3", "resend"]
-    : ["better-auth", "pg", "resend"];
+    ? ["better-auth", "better-sqlite3"]
+    : ["better-auth", "pg"];
   const devDeps = database === "sqlite"
     ? ["@types/better-sqlite3"]
     : ["@types/pg"];
@@ -116,10 +116,9 @@ export async function init(options: InitOptions) {
 
   p.note(
     [
-      `${pc.cyan("/register")}        create an account`,
-      `${pc.cyan("/login")}           sign in`,
-      `${pc.cyan("/forgot-password")} reset password`,
-      `${pc.cyan("/dashboard")}       protected page`,
+      `${pc.cyan("/register")}   create an account`,
+      `${pc.cyan("/login")}      sign in`,
+      `${pc.cyan("/dashboard")}  protected page`,
     ].join("\n"),
     "Routes",
   );

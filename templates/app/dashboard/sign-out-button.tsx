@@ -10,8 +10,6 @@ export default function SignOutButton() {
     setLoading(true);
     try {
       await authClient.signOut();
-    } catch (e) {
-      console.error("Sign out error:", e);
     } finally {
       window.location.href = "/login";
     }

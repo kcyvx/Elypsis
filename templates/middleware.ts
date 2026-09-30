@@ -7,11 +7,7 @@ export function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
-  const isAuthRoute =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password" ||
-    pathname === "/reset-password";
+  const isAuthRoute = pathname === "/login" || pathname === "/register";
   const isProtectedRoute = pathname.startsWith("/dashboard");
 
   // If already signed in, redirect away from auth pages
@@ -29,12 +25,6 @@ export function middleware(request: NextRequest) {
 
 // Add the routes you want to check here.
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-  ],
+  matcher: ["/dashboard/:path*", "/login", "/register"],
 };
 

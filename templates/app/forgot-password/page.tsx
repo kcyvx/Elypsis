@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
     const inputEmail = String(form.get("email") ?? "").trim().toLowerCase();
     setEmail(inputEmail);
 
-    const { error } = await authClient.forgetPassword({
+    const { error } = await authClient.requestPasswordReset({
       email: inputEmail,
       redirectTo: "/reset-password",
     });

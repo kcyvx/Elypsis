@@ -59,14 +59,16 @@ if (process.env.NODE_ENV !== "production") {
   (globalThis as unknown as { pgPool?: Pool }).pgPool = pool;
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 export const auth = betterAuth({
   database: pool,
   emailAndPassword: {
     enabled: true,
     async sendResetPassword({ user, url }) {
-      if (!process.env.RESEND_API_KEY) {
+      if (!resend) {
         console.log(\`\\n🔑 [Elypsis Dev] Reset password link for \${user.email}:\\n\${url}\\n\`);
         return;
       }

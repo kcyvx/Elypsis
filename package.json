@@ -5,7 +5,7 @@
     "url": "git+https://github.com/kcyvx/Elypsis.git"
   },
   "name": "elypsis-cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Add ready-to-use login and register pages, with working auth, to a Next.js project in one command.",
   "type": "module",
   "bin": {

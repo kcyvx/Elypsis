@@ -47,6 +47,7 @@ export function copyTemplates(
       content = `import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
+import { Resend } from "resend";
 
 const pool =
   (globalThis as unknown as { pgPool?: Pool }).pgPool ||
@@ -58,10 +59,25 @@ if (process.env.NODE_ENV !== "production") {
   (globalThis as unknown as { pgPool?: Pool }).pgPool = pool;
 }
 
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 export const auth = betterAuth({
   database: pool,
   emailAndPassword: {
     enabled: true,
+    async sendResetPassword({ user, url }) {
+      if (!process.env.RESEND_API_KEY) {
+        console.log(\`\\n🔑 [Elypsis Dev] Reset password link for \${user.email}:\\n\${url}\\n\`);
+        return;
+      }
+
+      await resend.emails.send({
+        from: process.env.EMAIL_FROM || "Auth <onboarding@resend.dev>",
+        to: user.email,
+        subject: "Reset your password",
+        html: \`<p>Hello \${user.name || "there"},</p><p>Click the link below to reset your password:</p><p><a href="\${url}">Reset Password</a></p>\`,
+      });
+    },
   },
   // keep nextCookies() last in the list
   plugins: [nextCookies()],
@@ -105,6 +121,8 @@ export function writeEnv(root: string, database: DatabaseType = "sqlite"): strin
   if (database === "postgres") {
     ensure("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mydb");
   }
+
+  ensure("RESEND_API_KEY", "");
 
   if (added.length > 0) fs.writeFileSync(envPath, next);
   return added;

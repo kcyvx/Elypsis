@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name("elypsis")
   .description("Add login and register pages, with working auth, to a Next.js project.")
-  .version("0.2.1");
+  .version("0.3.0");
 
 program
   .command("init", { isDefault: true })

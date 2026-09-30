@@ -18,10 +18,11 @@ npx elypsis-cli
    - `lib/auth.ts` and `lib/auth-client.ts`
    - `app/api/auth/[...all]/route.ts`
    - `app/login/page.tsx`, `app/register/page.tsx`
+   - `app/forgot-password/page.tsx`, `app/reset-password/page.tsx`
    - `app/dashboard/page.tsx` (protected example)
    - `middleware.ts` (`proxy.ts` on Next.js 16+)
-4. Configures environment variables in `.env.local` (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `DATABASE_URL` if Postgres).
-5. Installs dependencies (`better-auth` + database driver).
+4. Configures environment variables in `.env.local` (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `RESEND_API_KEY`, and `DATABASE_URL` if Postgres).
+5. Installs dependencies (`better-auth`, `resend` + database driver).
 6. Sets up the database tables.
 
 Existing files are never overwritten unless you pass `--force`.
@@ -90,6 +91,5 @@ node dist/index.js init --cwd ../my-next-app
 ## Roadmap
 
 - `elypsis add oauth` (Google, GitHub)
-- `elypsis add reset` (forgotten password)
 - `elypsis add verify-email`
 - Prisma / Drizzle + Postgres instead of SQLite

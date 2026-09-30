@@ -48,10 +48,18 @@ export function copyTemplates(
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
 
-export const auth = betterAuth({
-  database: new Pool({
+const pool =
+  (globalThis as unknown as { pgPool?: Pool }).pgPool ||
+  new Pool({
     connectionString: process.env.DATABASE_URL,
-  }),
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  (globalThis as unknown as { pgPool?: Pool }).pgPool = pool;
+}
+
+export const auth = betterAuth({
+  database: pool,
   emailAndPassword: {
     enabled: true,
   },

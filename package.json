@@ -2,15 +2,15 @@
   "author": "Thomas Galabert",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kcyvx/Elypsis"
+    "url": "git+https://github.com/kcyvx/Elypsis.git"
   },
   "name": "elypsis-cli",
   "version": "0.2.1",
   "description": "Add ready-to-use login and register pages, with working auth, to a Next.js project in one command.",
   "type": "module",
   "bin": {
-    "elypsis": "./dist/index.js",
-    "elypsis-cli": "./dist/index.js"
+    "elypsis": "dist/index.js",
+    "elypsis-cli": "dist/index.js"
   },
   "files": [
     "dist",

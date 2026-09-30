@@ -3,20 +3,17 @@ import { nextCookies } from "better-auth/next-js";
 import Database from "better-sqlite3";
 import { Resend } from "resend";
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
-
 export const auth = betterAuth({
   database: new Database("./sqlite.db"),
   emailAndPassword: {
     enabled: true,
     async sendResetPassword({ user, url }) {
-      if (!resend) {
+      if (!process.env.RESEND_API_KEY) {
         console.log(`\n🔑 [Elypsis Dev] Reset password link for ${user.email}:\n${url}\n`);
         return;
       }
 
+      const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
         from: process.env.EMAIL_FROM || "Auth <onboarding@resend.dev>",
         to: user.email,
